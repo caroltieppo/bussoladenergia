@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bússola da Bateria Social no Voluntariado</title>
+  
+  <!-- Google Fonts: Playfair Display & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,400&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+          },
+          colors: {
+            cream: {
+              50: '#FDFBF7',
+              100: '#F8F5EE',
+              200: '#EFE9DD',
+            },
+            sage: {
+              50: '#F3F6F3',
+              100: '#E4ECE5',
+              200: '#C9D9CC',
+              500: '#6C8D73',
+              700: '#435C49',
+              800: '#2D3F32',
+            },
+            terracotta: {
+              50: '#FAF3F0',
+              100: '#F3E4DC',
+              500: '#C87D65',
+              600: '#A95E46',
+            },
+            warmgold: {
+              400: '#D4AF37',
+              500: '#C59B27',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Importmap para React 18 e Lucide Icons -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "https://esm.sh/react@18.2.0",
+      "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+      "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+    }
+  }
+  </script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      background-color: #F8F5EE;
+      color: #2D3F32;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F8F5EE;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #C9D9CC;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-cream-100 text-slate-800 antialiased p-0 sm:p-4 md:p-6">
+  <!-- Container Raiz -->
+  <div id="root" class="w-full max-w-xl mx-auto"></div>
+
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useMemo } from 'react';
+    import ReactDOM from 'react-dom/client';
+    import { 
+      Sparkles, 
+      Battery, 
+      BatteryCharging, 
+      BatteryWarning, 
+      Compass, 
+      Coffee, 
+      BookOpen, 
+      Users, 
+      User, 
+      ShieldCheck, 
+      Check, 
+      Copy, 
+      ChevronRight, 
+      RotateCcw, 
+      Calendar, 
+      Feather,
+      Moon,
+      ArrowLeft,
+      CheckCircle2
+    } from 'lucide-react';
+
+    const STORAGE_KEY = 'bussola_energia_social_voluntariado_v2';
+
+    // Opções baseadas no material da viajante voluntária
+    const HUMOR_OPTIONS = [
+      {
+        id: 'conhecer_pessoas',
+        label: 'Com vontade de conhecer pessoas',
+        desc: 'Sua bateria social está abundante. Excelente para recepção, passeios coletivos e novas histórias.',
+        batteryMin: 85,
+        badge: 'Social Aberta',
+        bgGradient: 'from-amber-50 to-orange-50',
+        borderActive: 'border-amber-400'
+      },
+      {
+        id: 'grupos_pequenos',
+        label: 'Aberta a conversas, mas prefiro grupos pequenos',
+        desc: 'Energia intimista. Melhor cozinhar a dois no hostel ou trocar ideia calma do que ir para o barulho.',
+        batteryMin: 60,
+        badge: 'Intimista',
+        bgGradient: 'from-emerald-50 to-teal-50',
+        borderActive: 'border-emerald-400'
+      },
+      {
+        id: 'coisas_sozinha',
+        label: 'Com vontade de fazer coisas sozinha',
+        desc: 'Modo solitude ativado. Sair para caminhar sem rumo ou ler sem a obrigação de socializar com hóspedes.',
+        batteryMin: 35,
+        badge: 'Solitude',
+        bgGradient: 'from-sky-50 to-indigo-50',
+        borderActive: 'border-sky-400'
+      },
+      {
+        id: 'precisando_descansar',
+        label: 'Precisando descansar',
+        desc: 'Bateria esgotada da intensidade comunitária. Priorize fones de ouvido, descanso na cama ou rede.',
+        batteryMin: 15,
+        badge: 'Recarga Urgente',
+        bgGradient: 'from-rose-50 to-stone-50',
+        borderActive: 'border-rose-400'
+      }
+    ];
+
+    const WISH_OPTIONS = [
+      { id: 'atividade', label: 'Participar de alguma atividade', cost: 30, tag: 'Estímulo Médio' },
+      { id: 'alguem_novo', label: 'Conversar com alguém novo', cost: 40, tag: 'Alto Custo Social' },
+      { id: 'passeio_grupo', label: 'Fazer um passeio em grupo', cost: 45, tag: 'Alto Custo Social' },
+      { id: 'passeio_sozinha', label: 'Fazer um passeio sozinha', cost: 10, tag: 'Nutritivo' },
+      { id: 'cafe_sozinha', label: 'Tomar um café sozinha', cost: 5, tag: 'Regenerativo' },
+      { id: 'ler_descansar', label: 'Ler ou descansar', cost: 0, tag: 'Restauração' },
+      { id: 'nao_planejar', label: 'Não planejar nada', cost: 0, tag: 'Liberdade Plena' }
+    ];
+
+    const ORACULO_PRESETS = {
+      recarga: {
+        mantra: "Estar voluntariando não significa estar disponível 24 horas por dia. O meu descanso também é sagrado.",
+        permissao: "Você tem total direito de colocar seus fones de ouvido, ir para a cama ou rede e se desconectar das conversas do hostel hoje.",
+        scriptLimite: "Galera, hoje minha bateria social esgotou total! Vou colocar um fone e ficar quietinha na minha cama/rede descansando. Nos vemos no meu próximo turno ou amanhã!"
+      },
+      solitude: {
+        mantra: "Minha companhia na estrada é preciosa. Viajar em comunidade também pede pausas para me reencontrar.",
+        permissao: "Tirar folgas ou horas livres sozinha não é desfeita com os outros voluntários, é sobrevivência saudável na estrada.",
+        scriptLimite: "Oi pessoal! No meu tempo livre hoje vou fazer um rolê sozinha pela cidade/praia para respirar e recarregar. Se divirtam por aí e mais tarde a gente se esbarra!"
+      },
+      intimista: {
+        mantra: "Trocas autênticas valem mais que multidões. Conecto-me com profundidade onde há calma e escuta mútua.",
+        permissao: "Você não é obrigada a ir para o rolê barulhento ou beber com a galera para fazer amizade de verdade.",
+        scriptLimite: "Adorei o convite, mas hoje estou correndo de lugar lotado e barulhento! Se rolar de cozinhar algo leve aqui no hostel ou tomar um café calmo depois, tô dentro!"
+      },
+      social: {
+        mantra: "Minha energia de viajante flui com o mundo. Aberta a novas histórias, conexões e culturas.",
+        permissao: "Aproveite a vontade de explorar, trocar vivências com outros voluntários e acolher quem acaba de chegar.",
+        scriptLimite: "Bora! Hoje estou com a energia lá em cima para explorar, trocar ideia e conhecer gente nova. Que horas a gente sai?"
+      }
+    };
+
+    function App() {
+      // Identificador de data atual YYYY-MM-DD para controle diário
+      const todayStr = useMemo(() => {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }, []);
+
+      const formattedTodayDisplay = useMemo(() => {
+        return new Date().toLocaleDateString('pt-BR', { 
+          weekday: 'long', 
+          day: 'numeric', 
+          month: 'long' 
+        });
+      }, []);
+
+      // Estados de navegação: 'intro', 'checkin', 'desejos', 'resultado', 'historico'
+      const [currentStep, setCurrentStep] = useState('intro');
+
+      // Estados de dados do check-in
+      const [currentMood, setCurrentMood] = useState(null);
+      const [batteryLevel, setBatteryLevel] = useState(50);
+      const [selectedWishes, setSelectedWishes] = useState([]);
+      const [completedWishes, setCompletedWishes] = useState({});
+      const [copiedToast, setCopiedToast] = useState(false);
+      const [historyDays, setHistoryDays] = useState({});
+
+      // Garante que ao mudar de etapa a tela sempre inicie no topo do formulário
+      useEffect(() => {
+        try {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const rootElem = document.getElementById('root');
+          if (rootElem) {
+            rootElem.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (err) {
+          window.scrollTo(0, 0);
+        }
+      }, [currentStep]);
+
+      // Carregamento com Reset Inteligente Diário
+      useEffect(() => {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            const history = parsed.history || {};
+            setHistoryDays(history);
+
+            if (history[todayStr]) {
+              const todayData = history[todayStr];
+              setCurrentMood(todayData.mood || null);
+              setBatteryLevel(todayData.batteryLevel ?? 50);
+              setSelectedWishes(todayData.selectedWishes || []);
+              setCompletedWishes(todayData.completedWishes || {});
+            } else {
+              // NOVO DIA: Formulário resetado para a nova manhã!
+              setCurrentMood(null);
+              setBatteryLevel(50);
+              setSelectedWishes([]);
+              setCompletedWishes({});
+            }
+          }
+        } catch (e) {
+          console.error("Erro ao carregar do localStorage:", e);
+        }
+      }, [todayStr]);
+
+      const saveTodayCheckin = (updatedData = {}) => {
+        try {
+          const moodObj = HUMOR_OPTIONS.find(m => m.id === (updatedData.mood !== undefined ? updatedData.mood : currentMood));
+          const entry = {
+            date: todayStr,
+            formattedDate: formattedTodayDisplay,
+            mood: updatedData.mood !== undefined ? updatedData.mood : currentMood,
+            moodLabel: moodObj ? moodObj.label : '',
+            batteryLevel: updatedData.batteryLevel !== undefined ? updatedData.batteryLevel : batteryLevel,
+            selectedWishes: updatedData.selectedWishes !== undefined ? updatedData.selectedWishes : selectedWishes,
+            completedWishes: updatedData.completedWishes !== undefined ? updatedData.completedWishes : completedWishes,
+            savedAt: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          };
+
+          const newHistory = {
+            ...historyDays,
+            [todayStr]: entry
+          };
+
+          setHistoryDays(newHistory);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ history: newHistory }));
+        } catch (err) {
+          console.error("Erro ao salvar checkin:", err);
+        }
+      };
+
+      const toggleWish = (wishId) => {
+        let updated;
+        if (selectedWishes.includes(wishId)) {
+          updated = selectedWishes.filter(id => id !== wishId);
+        } else {
+          updated = [...selectedWishes, wishId];
+        }
+        setSelectedWishes(updated);
+      };
+
+      const toggleCompletedWish = (wishId) => {
+        const updated = {
+          ...completedWishes,
+          [wishId]: !completedWishes[wishId]
+        };
+        setCompletedWishes(updated);
+        saveTodayCheckin({ completedWishes: updated });
+      };
+
+      const totalSocialCost = useMemo(() => {
+        return selectedWishes.reduce((acc, id) => {
+          const item = WISH_OPTIONS.find(w => w.id === id);
+          return acc + (item ? item.cost : 0);
+        }, 0);
+      }, [selectedWishes]);
+
+      const energyBalance = useMemo(() => {
+        const remaining = batteryLevel - totalSocialCost;
+        if (batteryLevel <= 30 && totalSocialCost >= 30) {
+          return {
+            status: 'alerta',
+            title: 'Risco de Esgotamento Social no Hostel',
+            message: 'Sua bateria de viagem está em modo de sobrevivência. Se puder, reduza os compromissos e recolha-se sem culpa.',
+            colorClass: 'text-amber-800 bg-amber-50 border-amber-200'
+          };
+        } else if (remaining >= 20) {
+          return {
+            status: 'harmonia',
+            title: 'Equilíbrio Fluido na Viagem',
+            message: 'Suas vontades para hoje respeitam sua reserva de energia. Aproveite as trocas e os momentos com leveza!',
+            colorClass: 'text-emerald-800 bg-emerald-50 border-emerald-200'
+          };
+        } else {
+          return {
+            status: 'atencao',
+            title: 'Atenção aos Seus Limites',
+            message: 'Você estará bem no teto da sua cota social. Estabeleça um horário limite para se retirar e descansar.',
+            colorClass: 'text-slate-800 bg-warmgold-400/10 border-warmgold-400/30'
+          };
+        }
+      }, [batteryLevel, totalSocialCost]);
+
+      const currentOraculo = useMemo(() => {
+        if (currentMood === 'precisando_descansar') return ORACULO_PRESETS.recarga;
+        if (currentMood === 'coisas_sozinha') return ORACULO_PRESETS.solitude;
+        if (currentMood === 'grupos_pequenos') return ORACULO_PRESETS.intimista;
+        return ORACULO_PRESETS.social;
+      }, [currentMood]);
+
+      const handleMoodSelect = (moodId) => {
+        setCurrentMood(moodId);
+        const item = HUMOR_OPTIONS.find(m => m.id === moodId);
+        if (item) {
+          setBatteryLevel(item.batteryMin);
+        }
+      };
+
+      const copyToClipboard = (text) => {
+        try {
+          const textarea = document.createElement("textarea");
+          textarea.value = text;
+          textarea.style.position = "fixed";
+          textarea.style.opacity = "0";
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          setCopiedToast(true);
+          setTimeout(() => setCopiedToast(false), 2600);
+        } catch (e) {
+          console.warn("Fallback clipboard");
+        }
+      };
+
+      const finalizeCheckin = () => {
+        saveTodayCheckin();
+        setCurrentStep('resultado');
+      };
+
+      return (
+        <div className="min-w-full font-sans antialiased text-slate-800 pb-10">
+          
+          {/* Header Superior Fixo */}
+          <header className="bg-white/80 backdrop-blur border-b border-sage-100 rounded-t-3xl px-5 py-4 flex items-center justify-between shadow-xs sticky top-0 z-20">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 rounded-full bg-sage-100 flex items-center justify-center text-sage-700 shadow-inner">
+                <Compass className="w-4 h-4" />
+              </div>
+              <div>
+                <h1 className="font-serif font-semibold text-slate-900 text-sm tracking-wide">Bússola no Voluntariado</h1>
+                <p className="text-[11px] text-slate-500 capitalize">{formattedTodayDisplay}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1.5 text-xs">
+              {currentStep !== 'intro' && (
+                <button 
+                  onClick={() => setCurrentStep('historico')}
+                  className="px-2.5 py-1 rounded-full text-slate-600 hover:bg-cream-100 flex items-center space-x-1 transition-all"
+                  title="Ver dias anteriores"
+                >
+                  <Calendar className="w-3.5 h-3.5 text-sage-700" />
+                  <span className="hidden sm:inline font-medium">Jornada</span>
+                </button>
+              )}
+
+              {historyDays[todayStr] && currentStep !== 'resultado' && (
+                <button 
+                  onClick={() => setCurrentStep('resultado')}
+                  className="px-2.5 py-1 rounded-full bg-sage-50 text-sage-800 border border-sage-200 hover:bg-sage-100 font-medium transition-all"
+                >
+                  Meu Oráculo
+                </button>
+              )}
+            </div>
+          </header>
+
+          {currentStep === 'intro' && (
+            <div className="bg-white rounded-b-3xl border border-t-0 border-sage-100 shadow-sm overflow-hidden p-5 sm:p-7">
+              <div className="relative rounded-2xl overflow-hidden mb-6 shadow-md aspect-[16/10] bg-sage-100">
+                <img 
+                  src="https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&w=1000&q=80" 
+                  alt="Viajante voluntária descontraída em viagem ao ar livre, conectada com a natureza e leveza" 
+                  className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                  onError={(e) => {
+                    e.currentTarget.src = "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=1000&q=80";
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-900/25 to-transparent flex items-end p-5">
+                  <span className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-md text-slate-800 text-xs px-3 py-1 rounded-full font-medium shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-warmgold-500" />
+                    Seu Termômetro de Energia na Viagem
+                  </span>
+                </div>
+              </div>
+
+              {/* Narrativa Reestruturada */}
+              <div className="text-center max-w-md mx-auto space-y-4">
+                <div className="inline-block px-3.5 py-1 bg-terracotta-100 text-terracotta-600 rounded-full text-[11px] font-semibold tracking-wide uppercase">
+                  Check-in Diário de Bem-Estar no Voluntariado em Viagens
+                </div>
+                
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Na rotina da viagem voluntária, cada dia traz um ritmo diferente: há manhãs em que você acorda cheia de vontade de socializar e explorar, e outras em que seu corpo pede pausa e recolhimento. 
+                </p>
+                <p className="text-slate-500 text-xs leading-relaxed">
+                  Este mini-app é o seu espaço matinal para checar como está a sua bateria interna, escolher intenções conscientes para as suas horas livres e planejar o seu dia em harmonia com o que você realmente sente.
+                </p>
+
+                {/* Chamada em Letras Maiores */}
+                <div className="pt-2">
+                  <h2 className="font-serif text-2xl sm:text-3xl text-slate-900 font-semibold leading-tight">
+                    Antes de começar o dia de voluntariado, pergunte a si mesma:
+                  </h2>
+                </div>
+              </div>
+
+              {/* Pilares Explicativos */}
+              <div className="my-6 grid grid-cols-2 gap-3 text-left">
+                <div className="bg-cream-50 p-3.5 rounded-xl border border-cream-200">
+                  <div className="w-6 h-6 rounded-md bg-sage-100 text-sage-700 flex items-center justify-center mb-2">
+                    <BatteryCharging className="w-3.5 h-3.5" />
+                  </div>
+                  <h4 className="font-medium text-xs text-slate-900">Leitura Autêntica</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Entenda se o dia pede expansão social ou momentos de solitude.</p>
+                </div>
+                <div className="bg-cream-50 p-3.5 rounded-xl border border-cream-200">
+                  <div className="w-6 h-6 rounded-md bg-terracotta-100 text-terracotta-600 flex items-center justify-center mb-2">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </div>
+                  <h4 className="font-medium text-xs text-slate-900">Limites Sem Culpa</h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Mensagens gentis e prontas para comunicar suas escolhas com leveza.</p>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setCurrentStep('checkin')}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-sage-700 hover:bg-sage-800 text-white font-medium text-sm shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center space-x-2 active:scale-95"
+                >
+                  <span>Iniciar Meu Check-in de Hoje</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                {historyDays[todayStr] && (
+                  <p className="text-center text-xs text-sage-700 mt-2 font-medium">
+                    ✓ Você já fez o check-in de hoje. Você pode revisar ou refazer a qualquer momento.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {}
+          {/* Etapa 1: Check-in de Humor e Bateria */}
+          {currentStep === 'checkin' && (
+            <div className="bg-white rounded-b-3xl border border-t-0 border-sage-100 shadow-sm p-5 sm:p-7 space-y-6">
+              
+              <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-100">
+                <button 
+                  onClick={() => setCurrentStep('intro')} 
+                  className="flex items-center text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Voltar
+                </button>
+                <span className="font-medium text-sage-700">Etapa 1 de 2 • Seu Estado</span>
+              </div>
+
+              <div>
+                <span className="text-xs uppercase tracking-wider font-semibold text-terracotta-600 block mb-1">
+                  Pergunta 1 • Mapa de Energia
+                </span>
+                <h2 className="font-serif text-2xl text-slate-900 font-medium">Hoje eu estou:</h2>
+                <p className="text-slate-500 text-xs mt-1">Seja honesta com o que seu corpo e mente pedem nesta manhã.</p>
+              </div>
+
+              <div className="space-y-3">
+                {HUMOR_OPTIONS.map((option) => {
+                  const isSelected = currentMood === option.id;
+                  return (
+                    <div
+                      key={option.id}
+                      onClick={() => handleMoodSelect(option.id)}
+                      className={`cursor-pointer rounded-2xl p-4 border transition-all duration-200 relative ${
+                        isSelected 
+                          ? `${option.borderActive} bg-gradient-to-r ${option.bgGradient} ring-2 ring-sage-500/20 shadow-sm scale-[1.01]` 
+                          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start space-x-3">
+                          <div className={`w-5 h-5 mt-0.5 rounded-full border flex items-center justify-center transition-colors ${
+                            isSelected 
+                              ? 'border-sage-700 bg-sage-700 text-white' 
+                              : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-sm text-slate-800 leading-snug">
+                              {option.label}
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                              {option.desc}
+                            </p>
+                          </div>
+                        </div>
+
+                        <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full font-medium bg-white/80 border border-slate-200 text-slate-600">
+                          {option.badge}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {currentMood && (
+                <div className="bg-cream-50 p-4 rounded-2xl border border-cream-200 space-y-3 transition-all">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-slate-700 flex items-center gap-1.5">
+                      <Battery className="w-4 h-4 text-sage-700" />
+                      Calibração Fina da Bateria Social:
+                    </span>
+                    <span className="font-bold text-sm text-slate-900 bg-white px-2.5 py-0.5 rounded-full border border-slate-200">
+                      {batteryLevel}%
+                    </span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="5"
+                    max="100"
+                    step="5"
+                    value={batteryLevel}
+                    onChange={(e) => setBatteryLevel(Number(e.target.value))}
+                    className="w-full accent-sage-700 h-2 bg-slate-200 rounded-lg cursor-pointer"
+                  />
+
+                  <div className="flex justify-between text-[10px] text-slate-400">
+                    <span>Esgotada (0%)</span>
+                    <span>Moderada (50%)</span>
+                    <span>Cheia (100%)</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  disabled={!currentMood}
+                  onClick={() => setCurrentStep('desejos')}
+                  className={`w-full py-3.5 px-6 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center justify-center space-x-2 ${
+                    currentMood
+                      ? 'bg-sage-700 hover:bg-sage-800 text-white shadow-md active:scale-95'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <span>Continuar para Meus Desejos</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {}
+          {currentStep === 'desejos' && (
+            <div className="bg-white rounded-b-3xl border border-t-0 border-sage-100 shadow-sm p-5 sm:p-7 space-y-6">
+              
+              <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-100">
+                <button 
+                  onClick={() => setCurrentStep('checkin')} 
+                  className="flex items-center text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Ajustar Estado
+                </button>
+                <span className="font-medium text-sage-700">Etapa 2 de 2 • Suas Intenções</span>
+              </div>
+
+              <div>
+                <span className="text-xs uppercase tracking-wider font-semibold text-terracotta-600 block mb-1">
+                  Pergunta 2 • Necessidades Reais
+                </span>
+                <h2 className="font-serif text-2xl text-slate-900 font-medium">Hoje eu gostaria de:</h2>
+                <p className="text-slate-500 text-xs mt-1">
+                  Marque tudo o que soa autêntico para hoje (pode escolher mais de uma opção).
+                </p>
+              </div>
+
+              <div className="space-y-2.5">
+                {WISH_OPTIONS.map((wish) => {
+                  const isChecked = selectedWishes.includes(wish.id);
+                  return (
+                    <div
+                      key={wish.id}
+                      onClick={() => toggleWish(wish.id)}
+                      className={`cursor-pointer rounded-xl p-3.5 border transition-all duration-200 flex items-center justify-between ${
+                        isChecked 
+                          ? 'border-sage-500 bg-sage-50/70 text-slate-900 ring-1 ring-sage-400/40 shadow-xs' 
+                          : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                          isChecked 
+                            ? 'border-sage-700 bg-sage-700 text-white' 
+                            : 'border-slate-300 bg-white'
+                        }`}>
+                          {isChecked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                        <span className="text-sm font-medium">{wish.label}</span>
+                      </div>
+
+                      <span className="text-[10px] text-slate-400 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                        {wish.tag}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-cream-50 border border-cream-200 flex items-center justify-between text-xs">
+                <span className="text-slate-600">Custo Social Estimado:</span>
+                <div className="flex items-center gap-2">
+                  <span className={`font-semibold ${totalSocialCost > batteryLevel ? 'text-rose-600' : 'text-sage-700'}`}>
+                    {totalSocialCost} pts
+                  </span>
+                  <span className="text-slate-400">/ Bateria {batteryLevel}%</span>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  disabled={selectedWishes.length === 0}
+                  onClick={finalizeCheckin}
+                  className={`w-full py-3.5 px-6 rounded-2xl font-medium text-sm transition-all duration-300 flex items-center justify-center space-x-2 ${
+                    selectedWishes.length > 0
+                      ? 'bg-sage-700 hover:bg-sage-800 text-white shadow-md active:scale-95'
+                      : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  }`}
+                >
+                  <Sparkles className="w-4 h-4 text-warmgold-400" />
+                  <span>Gerar Meu Oráculo & Limites do Dia</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {}
+          {currentStep === 'resultado' && (
+            <div className="bg-white rounded-b-3xl border border-t-0 border-sage-100 shadow-sm p-5 sm:p-7 space-y-6">
+              
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                <span className="text-slate-500 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-sage-600" />
+                  Ritual de Hoje Concluído
+                </span>
+                <button 
+                  onClick={() => setCurrentStep('checkin')} 
+                  className="text-sage-700 hover:underline flex items-center gap-1 font-medium"
+                >
+                  <RotateCcw className="w-3 h-3" /> Recalibrar
+                </button>
+              </div>
+
+              {/* Card de Diagnóstico da Bateria */}
+              <div className={`p-4 rounded-2xl border ${energyBalance.colorClass} space-y-1.5 transition-all`}>
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                    {energyBalance.status === 'alerta' ? (
+                      <BatteryWarning className="w-4 h-4 text-amber-700" />
+                    ) : (
+                      <BatteryCharging className="w-4 h-4 text-emerald-700" />
+                    )}
+                    {energyBalance.title}
+                  </h3>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/70">
+                    Bateria: {batteryLevel}%
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed opacity-90">
+                  {energyBalance.message}
+                </p>
+              </div>
+
+              {/* Cartão Estético do Oráculo */}
+              <div className="relative rounded-3xl p-6 bg-gradient-to-br from-[#FAF7F2] to-[#EFEAE1] border border-stone-200/80 shadow-md space-y-5 text-center overflow-hidden">
+                <div className="absolute -top-12 -right-12 w-32 h-32 bg-warmgold-400/10 rounded-full blur-2xl pointer-events-none"></div>
+                <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-sage-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+                <div className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white shadow-xs text-warmgold-500 mx-auto">
+                  <Feather className="w-4 h-4" />
+                </div>
+
+                <div className="space-y-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+                    Mantra de Proteção na Estrada
+                  </span>
+                  <p className="font-serif italic text-lg sm:text-xl text-slate-800 leading-snug px-2">
+                    "{currentOraculo.mantra}"
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-stone-300/60 text-left">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-sage-800 block mb-1">
+                    Sua Permissão Emocional:
+                  </span>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    {currentOraculo.permissao}
+                  </p>
+                </div>
+              </div>
+
+              {/* Script de Limite para WhatsApp/Comunidade */}
+              <div className="bg-cream-50 rounded-2xl p-4 border border-cream-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <ShieldCheck className="w-4 h-4 text-terracotta-600" />
+                    <h4 className="font-semibold text-xs text-slate-900">Script de Limite no Hostel</h4>
+                  </div>
+                  <span className="text-[10px] text-slate-400">Pronto para copiar</span>
+                </div>
+
+                <p className="text-xs text-slate-600 italic bg-white p-3 rounded-xl border border-slate-200/80 leading-relaxed select-all">
+                  "{currentOraculo.scriptLimite}"
+                </p>
+
+                <button
+                  onClick={() => copyToClipboard(currentOraculo.scriptLimite)}
+                  className="w-full py-2.5 px-4 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center justify-center space-x-2 transition-all shadow-2xs active:scale-95"
+                >
+                  <Copy className="w-3.5 h-3.5 text-sage-700" />
+                  <span>{copiedToast ? 'Copiado para enviar no grupo/conversa!' : 'Copiar Mensagem de Limite'}</span>
+                </button>
+              </div>
+
+              {/* Checklist Vivo das Intenções */}
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-semibold text-xs text-slate-800 uppercase tracking-wider">
+                    Suas Intenções de Hoje ({selectedWishes.filter(id => completedWishes[id]).length}/{selectedWishes.length})
+                  </h4>
+                  <span className="text-[11px] text-slate-400">Marque ao vivenciar</span>
+                </div>
+
+                <div className="space-y-2">
+                  {selectedWishes.map((wishId) => {
+                    const wish = WISH_OPTIONS.find(w => w.id === wishId);
+                    if (!wish) return null;
+                    const isDone = !!completedWishes[wishId];
+                    return (
+                      <div
+                        key={wishId}
+                        onClick={() => toggleCompletedWish(wishId)}
+                        className={`cursor-pointer rounded-xl p-3 border transition-all flex items-center justify-between ${
+                          isDone 
+                            ? 'bg-sage-50/50 border-sage-200 text-slate-400 line-through' 
+                            : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2.5">
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                            isDone ? 'bg-sage-600 border-sage-600 text-white' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isDone && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <span className="text-xs font-medium">{wish.label}</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">{wish.tag}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Botão de Rodapé */}
+              <div className="pt-3 flex gap-2">
+                <button
+                  onClick={() => setCurrentStep('historico')}
+                  className="flex-1 py-3 px-4 rounded-xl bg-sage-50 border border-sage-200 text-sage-800 hover:bg-sage-100 font-medium text-xs flex items-center justify-center space-x-2 transition-all"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Ver Minha Jornada Passada</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {}
+          {currentStep === 'historico' && (
+            <div className="bg-white rounded-b-3xl border border-t-0 border-sage-100 shadow-sm p-5 sm:p-7 space-y-6">
+              
+              <div className="flex items-center justify-between text-xs pb-2 border-b border-slate-100">
+                <button 
+                  onClick={() => setCurrentStep(historyDays[todayStr] ? 'resultado' : 'intro')} 
+                  className="flex items-center text-slate-500 hover:text-slate-800 transition-colors"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5 mr-1" /> Voltar
+                </button>
+                <span className="font-medium text-sage-700">Seu Diário de Energia</span>
+              </div>
+
+              <div className="space-y-1">
+                <h2 className="font-serif text-2xl text-slate-900 font-medium">Jornada na Estrada</h2>
+                <p className="text-slate-500 text-xs">
+                  Seus registros anteriores ficam preservados aqui. A cada novo dia de voluntariado, o formulário reinicia limpo para um novo check-in.
+                </p>
+              </div>
+
+              <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                {Object.keys(historyDays).length === 0 ? (
+                  <div className="text-center py-10 bg-cream-50 rounded-2xl border border-dashed border-slate-200 p-6 space-y-2">
+                    <Coffee className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-xs text-slate-500">Nenhum check-in salvo ainda.</p>
+                    <button 
+                      onClick={() => setCurrentStep('checkin')}
+                      className="text-xs text-sage-700 font-semibold hover:underline"
+                    >
+                      Fazer o check-in de hoje agora
+                    </button>
+                  </div>
+                ) : (
+                  Object.keys(historyDays)
+                    .sort((a, b) => b.localeCompare(a))
+                    .map((dateKey) => {
+                      const dayData = historyDays[dateKey];
+                      const isToday = dateKey === todayStr;
+                      return (
+                        <div 
+                          key={dateKey}
+                          className={`p-4 rounded-2xl border text-xs space-y-2 transition-all ${
+                            isToday 
+                              ? 'bg-sage-50/60 border-sage-300 shadow-xs' 
+                              : 'bg-cream-50/60 border-slate-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-900 flex items-center gap-1.5">
+                              {dayData.formattedDate || dateKey}
+                              {isToday && (
+                                <span className="bg-sage-700 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase">
+                                  Hoje
+                                </span>
+                              )}
+                            </span>
+                            <span className="font-bold text-slate-700 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                              {dayData.batteryLevel}% Bateria
+                            </span>
+                          </div>
+
+                          <p className="text-slate-700 font-medium text-[11px]">
+                            {dayData.moodLabel || 'Estado Registrado'}
+                          </p>
+
+                          {dayData.selectedWishes && dayData.selectedWishes.length > 0 && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {dayData.selectedWishes.map((wId) => {
+                                const wObj = WISH_OPTIONS.find(item => item.id === wId);
+                                return (
+                                  <span key={wId} className="bg-white/90 text-slate-600 px-2 py-0.5 rounded-md border border-slate-200 text-[10px]">
+                                    {wObj ? wObj.label : wId}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setCurrentStep(historyDays[todayStr] ? 'resultado' : 'checkin')}
+                  className="w-full py-3.5 px-6 rounded-2xl bg-sage-700 hover:bg-sage-800 text-white font-medium text-sm shadow-md transition-all flex items-center justify-center space-x-2"
+                >
+                  <span>{historyDays[todayStr] ? 'Voltar para o Meu Oráculo de Hoje' : 'Fazer Check-in de Hoje'}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Toast Notification Flutuante */}
+          {copiedToast && (
+            <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-slate-900/90 backdrop-blur text-white text-xs py-2.5 px-5 rounded-full shadow-lg z-50 flex items-center space-x-2">
+              <Check className="w-4 h-4 text-emerald-400" />
+              <span>Mensagem de limite copiada com carinho!</span>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById('root');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+  </script>
+</body>
+</html>
